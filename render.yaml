@@ -3,6 +3,7 @@ services:
     name: hackrx-api
     runtime: python
     region: oregon
+    rootDir: llm_quer_system
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main_api:app --host 0.0.0.0 --port $PORT
     envVars:
