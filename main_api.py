@@ -105,7 +105,7 @@ class RunResponse(BaseModel):
 # 🚀 FastAPI app
 app = FastAPI()
 
-@app.post("/hackrx/run", response_model=RunResponse)
+@app.post("/api/v1/hackrx/run", response_model=RunResponse)
 def run_submission(req: RunRequest):
     try:
         all_chunks = []
