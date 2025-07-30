@@ -10,16 +10,16 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List
 
-# Load API key
+# Load API key from .env file
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 model = genai.GenerativeModel("gemini-1.5-flash")
 
-# 🧼 Sanitize text to avoid surrogate issues
+# Function to sanitize text (avoiding surrogate encoding issues)
 def clean_text(text):
     return text.encode("utf-8", "replace").decode("utf-8", "ignore")
 
-# 📄 Download and extract text from remote PDFs
+# Download PDF and extract text using PyMuPDF
 def download_and_extract_text(url: str) -> str:
     response = requests.get(url)
     if response.status_code != 200:
@@ -35,7 +35,7 @@ def download_and_extract_text(url: str) -> str:
         full_text += clean_text(page.get_text())
     return full_text
 
-# 🧩 Chunking logic
+# Break long text into overlapping chunks
 def chunk_text(text, chunk_size=500, overlap=50):
     words = text.split()
     return [
@@ -43,20 +43,20 @@ def chunk_text(text, chunk_size=500, overlap=50):
         for i in range(0, len(words), chunk_size - overlap)
     ]
 
-# 🧠 Build vector DB
+# Create FAISS vector index from text chunks
 def build_faiss_index(chunks, embed_model):
     vectors = embed_model.encode(chunks)
     index = faiss.IndexFlatL2(vectors.shape[1])
     index.add(vectors)
     return index, vectors
 
-# 🔎 Search top chunks
+# Search for top-k most relevant chunks
 def search_chunks(index, query, embed_model, all_chunks, top_k=3):
     q_vec = embed_model.encode([query])
     _, idx = index.search(q_vec, top_k)
     return [all_chunks[i] for i in idx[0]]
 
-# 📋 Prompt builder
+# Construct prompt for Gemini
 def build_prompt(context, query):
     return f"""
 You are an intelligent assistant trained to interpret legal, insurance, or policy documents.
@@ -74,8 +74,8 @@ Below are the most relevant parts of the document based on the user's question.
 📤 Output Instructions:
 - Read the policy snippets carefully.
 - Answer ONLY if the information is clearly present.
-- If the answer is not mentioned, say "Not specified in the provided content".
-- If only partially available, say "Partially mentioned" and explain why.
+- If the answer is not mentioned, say \"Not specified in the provided content\".
+- If only partially available, say \"Partially mentioned\" and explain why.
 - Return the result strictly in the following JSON format:
 
 ```json
@@ -86,7 +86,7 @@ Below are the most relevant parts of the document based on the user's question.
 }}
 """
 
-# 🤖 Gemini query
+# Use Gemini to get response from model
 def query_gemini(prompt):
     try:
         response = model.generate_content(prompt)
@@ -94,7 +94,7 @@ def query_gemini(prompt):
     except Exception as e:
         return f"Error: {str(e)}"
 
-# 🧾 FastAPI model classes
+# Pydantic classes for FastAPI request/response
 class RunRequest(BaseModel):
     documents: List[str]
     questions: List[str]
@@ -102,7 +102,7 @@ class RunRequest(BaseModel):
 class RunResponse(BaseModel):
     answers: List[str]
 
-# 🚀 FastAPI app
+# Create FastAPI app
 app = FastAPI()
 
 @app.post("/api/v1/hackrx/run", response_model=RunResponse)
